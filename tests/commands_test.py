@@ -105,8 +105,8 @@ def test_option_multiple():
     c = BetterCmd()
 
     @c.command
-    @c.option('port', type=int, default=port, help='Port')
     @c.option('host', default=host, help='Hostname')
+    @c.option('port', type=int, default=port, help='Port')
     def connect(self, args):
         assert args.port == port
         assert args.host == host

@@ -134,11 +134,10 @@ class BetterCmd:
         return inner
 
     def option(self, *args, **kwargs):
-        """This decorator should be used after the command decorator, and
-        arguments will be added in reverse. EG:
+        """This decorator should be used after the command decorator. EG:
         @c.command
-        @c.option('port', type=int, default=80, help='Port')
         @c.option('host', default='127.0.0.1', help='Hostname')
+        @c.option('port', type=int, default=80, help='Port')
         def connect(self, args):
             '''Connect to somewhere.'''
             self.print_message(f'Connecting to {args.host}:args.port}.')
@@ -149,7 +148,12 @@ class BetterCmd:
         def inner(func):
             if func not in self._parsers:
                 self._parsers[func] = self.create_parser()
-            self._parsers[func].add_argument(*args, **kwargs)
+            parser = self._parsers[func]
+            action = parser.add_argument(*args, **kwargs)
+            if len(parser._actions) >= 3:
+                # Shuffle arguments to ensure they're in the expected order:
+                parser._actions.remove(action)
+                parser._actions.insert(1, action)
             return func
         return inner
 
