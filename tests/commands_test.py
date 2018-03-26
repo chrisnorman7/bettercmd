@@ -53,3 +53,17 @@ def test_empty():
 def test_command_works():
     with raises(CommandWorks):
         cbc.feed('hello cruel world')
+
+
+def test_alias():
+    c = BetterCmd()
+
+    @c.alias('quit')
+    @c.command
+    def bye(self, args):
+        print('Quitting.')
+
+    b = c.commands['bye']
+    assert isinstance(b, BetterCmdCommand)
+    assert b is c.commands['quit']
+    assert c.commands == {'quit': b, 'bye': b}

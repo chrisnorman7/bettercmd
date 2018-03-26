@@ -10,7 +10,15 @@ from prompt_toolkit import prompt
 from prompt_toolkit.history import InMemoryHistory
 
 
-class CommandExit(Exception):
+class BetterCmdError(Exception):
+    """Base error."""
+
+
+class DuplicateNameError(BetterCmdError):
+    """There is already a command by this name."""
+
+
+class CommandExit(BetterCmdError):
     """A command exited for some reason."""
 
 
@@ -93,6 +101,24 @@ class BetterCmd:
         self.commands[func.__name__] = cmd
         return cmd
 
+    def alias(self, *names):
+        """Add aliases for a command.
+        Should be used before the command decorator. EG:
+        @cmd.alias('bye')
+        @cmd.command
+        def quit(self, args):
+            self.print_message('Goodbye.')
+            self.running = False
+        """
+        def inner(func):
+            print(func)
+            for name in names:
+                if name in self.commands:
+                    raise DuplicateNameError(name)
+                self.commands[name] = func
+            return func
+        return inner
+
     def before_command(self, line):
         """Hook method executed just before the command line is interpreted,
         but after the input prompt is generated and issued. Can be used to
@@ -135,7 +161,10 @@ class BetterCmd:
             if cmd is None:
                 self.default(command_name, args_string, args_list)
             else:
-                cmd(args_string, args_list)
+                try:
+                    cmd(args_string, args_list)
+                except CommandExit:
+                    pass  # That's OK.
         return cmd
 
     def run(self):
