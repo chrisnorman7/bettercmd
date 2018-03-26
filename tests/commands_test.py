@@ -58,7 +58,7 @@ def test_command_works():
 
 
 def test_alias():
-    c = BetterCmd()
+    c = BetterCmd(add_help=False)
 
     @c.command
     @c.alias('quit')
@@ -72,7 +72,7 @@ def test_alias():
 
 
 def test_alias_without_func_name():
-    c = BetterCmd()
+    c = BetterCmd(add_help=False)
 
     @c.command
     @c.alias('quit', add_function=False)

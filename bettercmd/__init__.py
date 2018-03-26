@@ -73,6 +73,7 @@ class BetterCmd:
 
     stdout = attrib(default=Factory(lambda: sys.stdout))
     stderr = attrib(default=Factory(lambda: sys.stderr))
+    add_help = attrib(default=Factory(lambda: True))
     commands = attrib(default=Factory(dict))
     command_class = attrib(default=Factory(lambda: BetterCmdCommand))
     parser_class = attrib(default=Factory(lambda: BetterCmdArgumentParser))
@@ -82,6 +83,40 @@ class BetterCmd:
     _all_aliases = attrib(default=Factory(set), init=False, repr=False)
     _aliases = attrib(default=Factory(dict), init=False, repr=False)
     _parsers = attrib(default=Factory(dict), init=False, repr=False)
+
+    def __attrs_post_init__(self):
+        """Add the help command."""
+        if self.add_help:
+            func = self.alias('help', '?')(self.do_help)
+            func = self.option(
+                'command', nargs='?', default=None,
+                help='The command to get help on'
+            )(func)
+            self.command(func)
+
+    def do_help(self, instance, args):
+        """Get help on a specific command."""
+        if args.command is None:
+            self.print_message('Showing commands:')
+            for cmd in self.commands.values():
+                self.print_help(cmd)
+                self.print_message('')
+        elif args.command not in self.commands:
+            self.default(args.command, '', [])
+        else:
+            cmd = self.commands[args.command]
+            self.print_help(cmd)
+
+    def print_help(self, cmd):
+        """Print help on a particular command cmd."""
+        func = cmd.func
+        aliases = [x for x, y in self.commands.items() if y.func is func]
+        name = aliases[0]
+        aliases = aliases[1:]
+        self.print_message(name)
+        if aliases:
+            self.print_message(f'Aliases: {", ".join(aliases)}.')
+        self.print_message(getdoc(func))
 
     def print_message(self, message):
         self.stdout.write(message)
@@ -102,8 +137,9 @@ class BetterCmd:
     def command(self, func):
         """Decorate a function with this decorator to add it to the commands
         dictionary."""
-        aliases = self._aliases.get(func, [func.__name__])
-        cmd = self.command_class(self, func, self._parsers.get(func, None))
+        uid = id(func)
+        aliases = self._aliases.get(uid, [func.__name__])
+        cmd = self.command_class(self, func, self._parsers.get(uid, None))
         if cmd.parser is not None:
             cmd.parser.command = cmd
             cmd.parser.prog = aliases[0]
@@ -127,15 +163,16 @@ class BetterCmd:
         names = list(names)
 
         def inner(func):
+            uid = id(func)
             if add_function:
                 names.insert(0, func.__name__)
             duplicates = self._all_aliases.intersection(names)
             if duplicates:
                 raise DuplicateNameError(duplicates)
-            aliases = self._aliases.get(func, [])
+            aliases = self._aliases.get(uid, [])
             aliases.extend(names)
             self._all_aliases.update(names)
-            self._aliases[func] = aliases
+            self._aliases[uid] = aliases
             return func
         return inner
 
@@ -152,9 +189,10 @@ class BetterCmd:
         command <host> <port>
         """
         def inner(func):
-            if func not in self._parsers:
-                self._parsers[func] = self.create_parser()
-            parser = self._parsers[func]
+            uid = id(func)
+            if uid not in self._parsers:
+                self._parsers[uid] = self.create_parser()
+            parser = self._parsers[uid]
             action = parser.add_argument(*args, **kwargs)
             if len(parser._actions) >= 3:
                 # Shuffle arguments to ensure they're in the expected order:
