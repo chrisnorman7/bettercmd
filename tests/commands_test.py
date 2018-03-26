@@ -37,7 +37,9 @@ def hello(self, args):
 
 def test_command():
     c = BetterCmd()
-    assert isinstance(c.command(print), BetterCmdCommand)
+    cmd = c.command(print)
+    assert isinstance(cmd, BetterCmdCommand)
+    assert cmd.parser is None
 
 
 def test_default():
@@ -58,8 +60,8 @@ def test_command_works():
 def test_alias():
     c = BetterCmd()
 
-    @c.alias('quit')
     @c.command
+    @c.alias('quit')
     def bye(self, args):
         print('Quitting.')
 
@@ -67,3 +69,49 @@ def test_alias():
     assert isinstance(b, BetterCmdCommand)
     assert b is c.commands['quit']
     assert c.commands == {'quit': b, 'bye': b}
+
+
+def test_alias_without_func_name():
+    c = BetterCmd()
+
+    @c.command
+    @c.alias('quit', add_function=False)
+    def bye(self, args):
+        print('Quitting.')
+
+    q = c.commands['quit']
+    assert isinstance(q, BetterCmdCommand)
+    assert c.commands == {'quit': q}
+
+
+def test_option():
+    filename = 'test.file'
+    c = BetterCmd()
+
+    @c.command
+    @c.option('-f', '--file', help='Filename')
+    def open(self, args):
+        assert args.file == filename
+        raise CommandWorks()
+
+    with raises(CommandWorks):
+        args = f'-f {filename}'
+        c.commands['open'](args, args.split())
+
+
+def test_option_multiple():
+    host = '127.0.0.1'
+    port = 80
+    c = BetterCmd()
+
+    @c.command
+    @c.option('port', type=int, default=port, help='Port')
+    @c.option('host', default=host, help='Hostname')
+    def connect(self, args):
+        assert args.port == port
+        assert args.host == host
+        raise CommandWorks()
+
+    args = f'{host} {port}'
+    with raises(CommandWorks):
+        c.commands['connect'](args, args.split())

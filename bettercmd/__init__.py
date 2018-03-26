@@ -49,7 +49,7 @@ class BetterCmdCommand:
 
     parent = attrib()
     func = attrib()
-    parser = attrib(default=Factory(lambda: None))
+    parser = attrib()
 
     def __call__(self, args_string, args_list):
         """Call self.func."""
@@ -69,23 +69,22 @@ class BetterCmd:
     stderr = attrib(default=Factory(lambda: sys.stderr))
     commands = attrib(default=Factory(dict))
     command_class = attrib(default=Factory(lambda: BetterCmdCommand))
+    parser_class = attrib(default=Factory(lambda: BetterCmdArgumentParser))
     running = attrib(default=Factory(bool))
     prompt_message = attrib(default=Factory(lambda: '>'))
     prompt_history = attrib(default=Factory(InMemoryHistory))
+    _all_aliases = attrib(default=Factory(set), init=False, repr=False)
+    _aliases = attrib(default=Factory(dict), init=False, repr=False)
+    _parsers = attrib(default=Factory(dict), init=False, repr=False)
 
     def print_message(self, message):
         self.stdout.write(message)
         self.stdout.write(os.linesep)
         self.stdout.flush()
 
-    def create_parser(self, command):
-        """Given a command, returns a parser to be used by the command
-        decorator."""
-        return self.parser_class(
-            command, prog=command.func.__name__,
-            formatter_class=ArgumentDefaultsHelpFormatter,
-            description=getdoc(command.func)
-        )
+    def create_parser(self):
+        """Returns a parser to be used by the command decorator."""
+        return self.parser_class(formatter_class=ArgumentDefaultsHelpFormatter)
 
     def split(self, line):
         """Returns line split into a list."""
@@ -97,25 +96,60 @@ class BetterCmd:
     def command(self, func):
         """Decorate a function with this decorator to add it to the commands
         dictionary."""
-        cmd = self.command_class(self, func)
-        self.commands[func.__name__] = cmd
+        aliases = self._aliases.get(func, [func.__name__])
+        cmd = self.command_class(self, func, self._parsers.get(func, None))
+        if cmd.parser is not None:
+            cmd.parser.command = cmd
+            cmd.parser.prog = aliases[0]
+            cmd.parser.description = getdoc(func)
+        for name in aliases:
+            self.commands[name] = cmd
         return cmd
 
-    def alias(self, *names):
+    def alias(self, *names, add_function=True):
         """Add aliases for a command.
-        Should be used before the command decorator. EG:
-        @cmd.alias('bye')
+        Should be used after the command decorator. EG:
         @cmd.command
-        def quit(self, args):
+        @cmd.alias('quit')
+        def bye(self, args):
+            '''Exit the program.'''
             self.print_message('Goodbye.')
             self.running = False
+
+        If add_function evaluates to True then the name of the function will be
+        set as the first name in the list."""
+        names = list(names)
+
+        def inner(func):
+            if add_function:
+                names.insert(0, func.__name__)
+            duplicates = self._all_aliases.intersection(names)
+            if duplicates:
+                raise DuplicateNameError(duplicates)
+            aliases = self._aliases.get(func, [])
+            aliases.extend(names)
+            self._all_aliases.update(names)
+            self._aliases[func] = aliases
+            return func
+        return inner
+
+    def option(self, *args, **kwargs):
+        """This decorator should be used after the command decorator, and
+        arguments will be added in reverse. EG:
+        @c.command
+        @c.option('port', type=int, default=80, help='Port')
+        @c.option('host', default='127.0.0.1', help='Hostname')
+        def connect(self, args):
+            '''Connect to somewhere.'''
+            self.print_message(f'Connecting to {args.host}:args.port}.')
+
+        Must be called as:
+        command <host> <port>
         """
         def inner(func):
-            print(func)
-            for name in names:
-                if name in self.commands:
-                    raise DuplicateNameError(name)
-                self.commands[name] = func
+            if func not in self._parsers:
+                self._parsers[func] = self.create_parser()
+            self._parsers[func].add_argument(*args, **kwargs)
             return func
         return inner
 
