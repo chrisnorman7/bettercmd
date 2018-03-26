@@ -98,3 +98,5 @@ ENV/
 *.sqlite3
 env-client
 .pytest_cache
+AUTHORS
+ChangeLog

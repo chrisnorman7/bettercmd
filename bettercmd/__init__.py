@@ -10,6 +10,12 @@ from prompt_toolkit import prompt
 from prompt_toolkit.history import InMemoryHistory
 
 
+__all__ = [
+    'BetterCmdError', 'DuplicateNameError', 'CommandExit',
+    'BetterCmdArgumentParser', 'BetterCmdCommand', 'BetterCmd'
+]
+
+
 class BetterCmdError(Exception):
     """Base error."""
 
