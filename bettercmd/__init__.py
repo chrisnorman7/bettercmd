@@ -87,7 +87,7 @@ class BetterCmd:
     def __attrs_post_init__(self):
         """Add the help command."""
         if self.add_help:
-            func = self.alias('help', '?')(self.do_help)
+            func = self.alias('help', '?', add_function=False)(self.do_help)
             func = self.option(
                 'command', nargs='?', default=None,
                 help='The command to get help on'
