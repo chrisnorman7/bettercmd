@@ -1,5 +1,5 @@
 from pytest import raises
-from bettercmd import BetterCmd, BetterCmdCommand
+from bettercmd import BetterCmd, BetterCmdCommand, CommandExit
 
 
 class CommandWorks(Exception):
@@ -115,3 +115,19 @@ def test_option_multiple():
     args = f'{host} {port}'
     with raises(CommandWorks):
         c.commands['connect'](args, args.split())
+
+
+def test_no_args():
+    c = BetterCmd()
+
+    @c.command
+    @c.alias('quit', add_function=False)
+    @c.no_args
+    def do_quit(self, args):
+        raise CommandWorks
+
+    q = c.commands['quit']
+    with raises(CommandWorks):
+        q('', [])
+    with raises(CommandExit):
+        q('test', ['test'])

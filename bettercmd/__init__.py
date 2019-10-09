@@ -205,6 +205,18 @@ class BetterCmd:
             return func
         return inner
 
+    def no_args(self, func):
+        """Don't accept any arguments."""
+
+        def inner(cmd, args):
+            if args.args_list:
+                cmd.print_message('This command takes no arguments.')
+                raise CommandExit
+            else:
+                return func(cmd, args)
+
+        return inner
+
     def before_command(self, line):
         """Hook method executed just before the command line is interpreted,
         but after the input prompt is generated and issued. Can be used to
