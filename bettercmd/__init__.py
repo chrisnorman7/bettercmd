@@ -98,7 +98,11 @@ class BetterCmd:
         """Get help on a specific command."""
         if args.command is None:
             self.print_message('Showing commands:')
+            shown = []
             for cmd in self.commands.values():
+                if cmd in shown:
+                    continue
+                shown.append(cmd)
                 self.print_help(cmd)
                 self.print_message('')
         elif args.command not in self.commands:
